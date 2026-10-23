@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Party - crossword tile game with friends</title>
+<meta name="description" content="Play a friendly crossword tile game online with 2-4 friends. Private rooms, bots and room chat.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:,">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">W</span><span class="txt">Word Party</span></div>
+  <div class="top-info" id="topInfo"></div>
+  <div class="top-buttons">
+    <button class="icon-btn" id="soundBtn" title="Sound on/off" aria-label="Toggle sound">🔊</button>
+    <button class="icon-btn" id="helpBtn" title="How to play" aria-label="How to play">?</button>
+  </div>
+</header>
+
+<main id="app">
+  <!-- HOME -->
+  <section id="home" class="screen card-screen">
+    <div class="card hero">
+      <div class="hero-tiles" aria-hidden="true"><span>W</span><span>O</span><span>R</span><span>D</span></div>
+      <h1>Word Party</h1>
+      <p class="sub">The crossword tile game for 2-4 friends · add bots any time</p>
+      <label class="field">Your name
+        <input id="nameInput" maxlength="16" autocomplete="nickname" placeholder="e.g. Auntie May">
+      </label>
+      <button class="big-btn primary" id="createBtn">Create a private room</button>
+      <div class="or">or join one</div>
+      <div class="join-row">
+        <input id="codeInput" maxlength="6" placeholder="ROOM CODE" autocapitalize="characters" autocomplete="off" aria-label="Room code">
+        <button class="big-btn" id="joinBtn">Join</button>
+      </div>
+      <button class="link-btn" id="homeHelp">How to play →</button>
+    </div>
+  </section>
+
+  <!-- LOBBY -->
+  <section id="lobby" class="screen card-screen hidden">
+    <div class="card">
+      <h2>Room <span class="code" id="lobbyCode"></span></h2>
+      <div class="share">
+        <input id="shareLink" readonly aria-label="Share link">
+        <button class="big-btn small" id="copyBtn">Copy link</button>
+      </div>
+      <ol class="seat-list" id="seatList"></ol>
+      <div class="settings" id="settingsBox">
+        <label class="toggle">Turn timer
+          <select id="setTimer">
+            <option value="0">Off</option><option value="60">1 minute</option><option value="120">2 minutes</option>
+            <option value="180">3 minutes</option><option value="300">5 minutes</option>
+          </select>
+        </label>
+        <label class="toggle"><input type="checkbox" id="setProfanity"> Chat profanity filter</label>
+      </div>
+      <p class="muted" id="lobbyNote"></p>
+      <div class="row">
+        <button class="big-btn primary" id="startBtn">Start game ▶</button>
+        <button class="big-btn hidden" id="backToGame">Back to the board</button>
+        <button class="big-btn ghost" id="leaveBtn">Leave</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME -->
+  <section id="game" class="screen game hidden">
+    <div class="scores" id="scores"></div>
+    <div class="board-wrap"><div class="board" id="board" role="grid" aria-label="Game board"></div></div>
+    <div class="play-area">
+      <div class="status-row">
+        <div class="status" id="status" aria-live="polite"></div>
+        <div class="timer hidden" id="timerWrap"><div class="timer-bar" id="turnTimer"></div></div>
+      </div>
+      <div class="preview hidden" id="preview" aria-live="polite"></div>
+      <div class="rack" id="rack" aria-label="Your tiles"></div>
+      <div class="controls" id="controls">
+        <button class="big-btn primary" id="playBtn">Play ✔</button>
+        <button class="big-btn" id="checkBtn" title="Check words and score before playing">Check</button>
+        <button class="big-btn" id="recallBtn" title="Bring placed tiles back to your rack">Recall</button>
+        <button class="big-btn" id="shuffleBtn" title="Shuffle your rack">Shuffle</button>
+        <button class="big-btn" id="hintBtn" title="Suggest a move">💡 Hint</button>
+        <button class="big-btn" id="swapBtn" title="Exchange tiles (uses your turn)">Swap</button>
+        <button class="big-btn ghost" id="passBtn">Pass</button>
+      </div>
+      <div class="controls hidden" id="swapControls">
+        <span class="muted">Tap the tiles you want to swap.</span>
+        <button class="big-btn primary" id="swapConfirm">Swap tiles</button>
+        <button class="big-btn ghost" id="swapCancel">Cancel</button>
+      </div>
+    </div>
+    <div class="side">
+      <div class="last-move" id="lastMove"></div>
+      <h3 class="log-title">Moves</h3>
+      <ol class="move-log" id="moveLog"></ol>
+      <button class="big-btn small hidden" id="resultBtn">📋 Final scores</button>
+    </div>
+
+    <!-- blank tile letter picker -->
+    <div class="popup hidden" id="blankPopup" role="dialog" aria-label="Choose a letter for the blank tile">
+      <div class="popup-card">
+        <div class="popup-title">Blank tile - pick a letter</div>
+        <div class="letter-grid" id="letterGrid"></div>
+        <button class="big-btn ghost" id="blankCancel">Cancel</button>
+      </div>
+    </div>
+    <!-- game over -->
+    <div class="popup hidden" id="resultPopup" role="dialog" aria-label="Final scores">
+      <div class="popup-card wide" id="resultCard"></div>
+    </div>
+  </section>
+
+  <!-- CHAT: always below the board -->
+  <section id="chat" class="chat hidden" aria-label="Room chat">
+    <div class="chat-head">
+      <strong>Room chat</strong>
+      <span class="muted small">Room only · not saved · be kind 🙂</span>
+      <div class="mute-bar" id="muteBar"></div>
+    </div>
+    <div class="chat-log" id="chatLog" aria-live="polite"></div>
+    <form class="chat-form" id="chatForm" autocomplete="off">
+      <input id="chatInput" maxlength="300" placeholder="Say something…" aria-label="Chat message">
+      <span class="count" id="chatCount">0/300</span>
+      <button class="big-btn small primary" type="submit">Send</button>
+    </form>
+  </section>
+</main>
+
+<!-- HOW TO PLAY -->
+<div class="popup hidden" id="helpPopup" role="dialog" aria-label="How to play">
+  <div class="popup-card wide help">
+    <h2>How to play (in 1 minute)</h2>
+    <ol>
+      <li><b>Make words</b> on the board with the 7 letter tiles on your rack, crossword-style.</li>
+      <li><b>Place tiles:</b> drag them onto the board, or <b>tap a tile, then tap a square</b>. Tap a placed tile to take it back.</li>
+      <li>All new tiles go in <b>one row or one column</b>, with no gaps, and must <b>join the tiles already there</b>. The first word must cover the <b>★ centre</b>.</li>
+      <li><b>Score</b> = the letter values of every word you make. Coloured squares boost it: <span class="chip dl">2× letter</span> <span class="chip tl">3× letter</span> <span class="chip dw">2× word</span> <span class="chip tw">3× word</span>. Use all 7 tiles in one turn for a <b>+50 bonus</b>!</li>
+      <li><b>Blank tiles</b> (no letter) can be any letter you pick, but score 0.</li>
+      <li>Press <b>Check</b> to see if your words are valid and what they score, then <b>Play</b>. Stuck? <b>Hint</b> suggests a move, <b>Swap</b> trades tiles (uses your turn), or <b>Pass</b>.</li>
+      <li><b>The end:</b> when the bag is empty and someone uses their last tile - or after 6 turns in a row with no score. Leftover tiles count against you (and go to whoever went out first).</li>
+    </ol>
+    <p class="muted small">Words are checked against the public-domain ENABLE word list.</p>
+    <button class="big-btn primary" id="helpClose">Got it!</button>
+  </div>
+</div>
+
+<div class="drag-ghost hidden" id="ghost" aria-hidden="true"></div>
+<div class="toast hidden" id="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>
