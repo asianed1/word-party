@@ -199,7 +199,7 @@ input:focus, select:focus { outline: none; border-color: var(--blue); }
 .publisher-note { margin-top: 10px; text-align: center; }
 
 /* ---- placement problems: live soft hints + server-confirmed red flashes ---- */
-.place-hint { margin: 0 0 8px; padding: 7px 12px; border-radius: 10px; background: #fff7e0; color: #7a4b00; border: 1px solid #f2c25c; font-size: .92rem; font-weight: 600; line-height: 1.35; }
+.place-hint { margin: 0 0 8px; padding: 7px 12px; min-height: calc(1.35em + 16px); border-radius: 10px; background: #fff7e0; color: #7a4b00; border: 1px solid #f2c25c; font-size: .92rem; font-weight: 600; line-height: 1.35; }
 .preview.bad { background: #fff1f0; color: #6b1510; border: 2px solid var(--red); border-left-width: 6px; font-weight: 600; font-size: 1rem; line-height: 1.45; padding: 10px 14px; }
 .preview.bad .icon { color: var(--red); font-weight: 900; }
 .preview .bad-word { font-weight: 900; }
@@ -215,6 +215,13 @@ input:focus, select:focus { outline: none; border-color: var(--blue); }
 @keyframes redglow { 50% { filter: brightness(1.15) saturate(1.4); } }
 @keyframes starpulse { 50% { transform: scale(1.35); } }
 @media (prefers-reduced-motion: reduce) { .cell .tile.odd, .cell .tile.bad-word-tile, .cell.gap-flash, .cell.star-pulse { animation: none; } }
-@media (max-width: 600px) { .preview.bad { font-size: .95rem; padding: 9px 11px; } .place-hint { font-size: .88rem; } }
+@media (max-width: 600px) { .preview.bad { font-size: .95rem; padding: 9px 11px; } .place-hint { font-size: .88rem; min-height: calc(2 * 1.35em + 16px); display: flex; align-items: center; } }
 .cell .tile.odd-pulse { background: #ffb3ab !important; box-shadow: inset 0 -2px 0 #c0392b, 0 0 0 3px var(--red) !important; animation: pulse .7s ease-in-out 3; z-index: 3; }
 @media (prefers-reduced-motion: reduce) { .cell .tile.odd-pulse { animation: none; } }
+
+/* ---- "press Play" nudge: placement passes the local check -> green hint + glowing Play button ---- */
+.place-hint.empty { visibility: hidden; } /* keeps its space so nothing jumps */
+.place-hint.ok { background: #e9f9ef; color: #135c39; border-color: #7fd3a2; }
+#playBtn.ready:not(:disabled) { animation: playglow 1.6s ease-in-out infinite; }
+@keyframes playglow { 0%, 100% { box-shadow: 0 0 0 0 #ff7a4566; } 50% { box-shadow: 0 0 0 7px #ff7a4533, 0 0 18px 4px #ff7a4588; } }
+@media (prefers-reduced-motion: reduce) { #playBtn.ready:not(:disabled) { animation: none; box-shadow: 0 0 0 4px #ffc53d, 0 0 14px 2px #ff7a4566; } }

@@ -213,6 +213,7 @@
   let selected = null;       // tile id picked for tap-to-place
   let swapMode = false, swapSel = new Set();
   let hinted = new Set(), lastTurnKey = null, lastPreview = null;
+  let knownScore = null; // {key, score}: score the server already sent for this exact placement (Check result or Hint)
   let flash = null;          // server-confirmed problem: {cells:Set, mark, timer} - shown in red for ~2s
   let live = null;           // live client-side placement check of the pending tiles (soft hint)
   const rackTile = (id) => view && view.rack.find((t) => t.id === id);
@@ -241,6 +242,7 @@
   }
 
   const pendingTiles = () => [...pending.values()].map((p) => ({ r: p.r, c: p.c }));
+  const pendingKey = () => [...pending].map(([id, p]) => `${id}@${p.r},${p.c}${p.letter || ''}`).sort().join('|');
   function liveCheck() {
     live = null;
     if (!view || view.phase !== 'play' || swapMode || !pending.size || !window.Placement) return;
@@ -357,11 +359,19 @@
     $('controls').classList.toggle('hidden', swapMode);
     $('swapControls').classList.toggle('hidden', !swapMode);
     $('playBtn').disabled = !mine || !has;
+    // Hint line: the friendly live error while placing, or a "press Play" nudge once the placement passes the local check.
+    // During play the slot keeps its space (visibility only) so the rack and buttons don't jump around.
     const hint = $('placeHint'), showingProblem = lastPreview && !lastPreview.valid;
-    if (live && !showingProblem) { hint.textContent = `⚠ ${live.short}`; hint.classList.remove('hidden'); }
-    else hint.classList.add('hidden');
+    const ready = mine && has && !live && !showingProblem && !swapMode && view.phase === 'play';
+    const score = ready && knownScore && knownScore.key === pendingKey() ? knownScore.score : null;
+    hint.classList.toggle('hidden', view.phase !== 'play');
+    hint.classList.toggle('ok', ready);
+    if (live && !showingProblem) { hint.textContent = `⚠ ${live.short}`; hint.classList.remove('empty'); }
+    else if (ready) { hint.textContent = score != null ? `👍 Looks good! Press Play ✔ to score ${score} point${score === 1 ? '' : 's'}.` : '👍 Looks good! Press Play ✔ to place your word.'; hint.classList.remove('empty'); }
+    else { hint.textContent = ''; hint.classList.add('empty'); }
     $('playBtn').title = live ? `Not quite yet: ${live.short}` : 'Play your word';
     $('playBtn').classList.toggle('warn', !!live);
+    $('playBtn').classList.toggle('ready', ready);
     $('checkBtn').disabled = !has;
     $('recallBtn').disabled = !has;
     $('shuffleBtn').disabled = view.rack.length < 2;
@@ -553,7 +563,8 @@
     SFX.bad();
   }
   function showPreview(p) {
-    lastPreview = p; const box = $('preview'); box.replaceChildren(); box.classList.remove('hidden');
+    lastPreview = p; const box = $('preview');
+    if (p.valid && typeof p.score === 'number') knownScore = { key: pendingKey(), score: p.score }; box.replaceChildren(); box.classList.remove('hidden');
     box.classList.toggle('bad', !p.valid);
     if (p.valid) {
       box.appendChild(h('span', '', '✔ '));
@@ -578,6 +589,7 @@
     if (!hn) { toast('No playable word found - try Swap or Pass.', 3500); return; }
     pending.clear(); hinted.clear(); clearPreview(); selected = null;
     for (const p of hn.placements) { pending.set(p.id, p.letter ? { r: p.r, c: p.c, letter: p.letter } : { r: p.r, c: p.c }); hinted.add(p.id); }
+    if (typeof hn.score === 'number') knownScore = { key: pendingKey(), score: hn.score };
     toast(`💡 Try ${hn.words.join(', ')} for ${hn.score} points`, 3500);
     renderGame();
   }
