@@ -1,5 +1,9 @@
 # Word Party 🔤
 
+<p><img src="public/img/crow-new-media-logo.png" alt="Crow New Media" width="240"></p>
+
+**Published by Crow New Media.** © 2026 Crow New Media.
+
 A friendly online **crossword tile game for 2-4 players**. Make a private room, share the link,
 add bots if you are short of players, and chat while you play. Works on desktop and phones.
 

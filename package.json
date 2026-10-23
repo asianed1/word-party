@@ -2,6 +2,7 @@
   "name": "word-party",
   "version": "1.0.0",
   "description": "Online 2-4 player crossword tile game with bots and room chat",
+  "author": "Crow New Media",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
