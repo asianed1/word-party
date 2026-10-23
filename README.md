@@ -96,7 +96,7 @@ scripts/      smoke.js (2 socket clients), browser-check.js (desktop + phone hea
   Players only ever receive their own rack.
 * Messages are JSON, max 4 KB, whitelisted keys and per-type validation; anything else is rejected.
 * Every in-room message re-validates the seat's session token (48 hex chars, compared in constant time).
-* The dictionary (~168k words) loads in ~0.1 s into a trie; move generation takes a few ms to ~100 ms.
+* The everyday word list (~66k words) loads in ~0.04 s into a trie (the ~168k-word expert list loads lazily, only when a room turns it on); move generation takes a few ms to ~100 ms.
 
 ## Security notes
 
@@ -117,10 +117,27 @@ Note: free instances sleep when idle (first visit can take ~30-60 s) and rooms a
 
 ## Word list
 
-`data/enable1.txt` is the **ENABLE** word list, which is in the **public domain**; `data/extra-words.txt` adds 11
-common modern two-letter words (QI, ZA, …) that ENABLE predates. See `data/README.md`.
-Some words accepted in commercial tournament lists are not in ENABLE, and vice versa.
+**Default: everyday English words only** (`data/common-words.txt`, 66,354 words, inflected forms included -
+BOXES, JUMPED, RUNNING, TALLER…). It is built by `scripts/build-common-words.py` from
+**SCOWL** (Spell Checker Oriented Word Lists, http://wordlist.aspell.net/, release 2020.12.07) at **size 55**
+(roughly a desk dictionary), English + American + British spellings:
+
+* only all-lowercase A-Z entries (drops proper nouns, abbreviations, contractions, hyphenated words),
+* intersected with ENABLE as a sanity filter (only established game spellings),
+* minus non-everyday two-letter words (`data/common-exclude.txt`: MU NU ES EM TA HO) and slurs (`data/blocked-words.txt`),
+* plus `data/common-add.txt` (OK).
+
+So obscure words such as GAED, FEIRIE, QAT, QI, ZA, XU, AA and KAT are rejected, while HOSE, TEE, QUEEN, FAIRY are fine.
+Two-letter words allowed: AD AH AM AN AS AT AX BE BY DO EH ER EX FA GO HA HE HI ID IF IN IS IT LA LO MA ME MI MY NO
+OF OH OK ON OR OW OX PA PI RE SH SO TI TO UH UM UP US WE YE YO. **Bots and Hint only ever use this list.**
+
+**Expert words** (lobby toggle, off by default, host-only, between games): also accept the full **ENABLE** list
+(`data/enable1.txt`, public domain, ~168k words of 2-15 letters), e.g. KHAT, QAT, AA. Slurs stay blocked.
+
+**Licenses:** SCOWL is Copyright 2000-2018 Kevin Atkinson and may be used, copied, modified, distributed and sold
+for any purpose provided the copyright and permission notice is kept - it is included as `data/SCOWL-LICENSE.txt`
+(SCOWL also incorporates public-domain sources such as Moby, 12Dicts and ENABLE). ENABLE is public domain.
 
 ## License
 
-Code: MIT (see LICENSE). Word list: public domain.
+Code: MIT (see LICENSE). Word lists: SCOWL-derived list under the SCOWL license (`data/SCOWL-LICENSE.txt`); ENABLE public domain.

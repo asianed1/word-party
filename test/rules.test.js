@@ -115,9 +115,9 @@ test('scoring: blanks score zero, bingo adds 50', () => {
   assert.equal(bingo.bingo, true); assert.equal(bingo.score, 66);
 });
 
-test('ENABLE dictionary loads and checks words', () => {
-  const d = load();
-  for (const w of ['QI', 'ZA', 'AA', 'QUIZ', 'RETAINS', 'JUKEBOX', 'XYST']) assert.ok(d.has(w), w);
-  for (const w of ['QQ', 'ASDF', 'A', '', 'HELLOWORLD', 'cat1']) assert.equal(d.has(w), false, w);
+test('expert (ENABLE) dictionary loads and checks words', () => {
+  const d = load('expert');
+  for (const w of ['AA', 'QAT', 'KHAT', 'QUIZ', 'RETAINS', 'JUKEBOX', 'XYST', 'OK']) assert.ok(d.has(w), w);
+  for (const w of ['QQ', 'ASDF', 'A', '', 'HELLOWORLD', 'cat1', 'QI', 'ZA']) assert.equal(d.has(w), false, w);
   assert.ok(d.count > 160000);
 });

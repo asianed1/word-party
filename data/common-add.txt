@@ -1,0 +1,2 @@
+# Common words that SCOWL lists only in capitals or ENABLE lacks, added by hand.
+OK

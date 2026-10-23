@@ -23,7 +23,13 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false,
 }));
-dict.load(); // warm the word list before accepting players
+dict.load(); // warm the everyday word list before accepting players (the expert list loads lazily)
+// Is a word in the default (everyday) list? Used by the smoke test; the list itself is public.
+app.get('/api/word', (req, res) => {
+  const w = typeof req.query.w === 'string' ? req.query.w.toUpperCase() : '';
+  if (!/^[A-Z]{1,15}$/.test(w)) return res.status(400).json({ error: 'w must be 1-15 letters' });
+  res.set('Cache-Control', 'public, max-age=300').json({ word: w, valid: dict.load().has(w), list: 'everyday' });
+});
 app.get('/healthz', (req, res) => res.json({ ok: true, rooms: rooms.rooms.size }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '5m', index: 'index.html' }));
 

@@ -9,13 +9,14 @@ const MAX_SCORELESS = 6;
 class Game extends EventEmitter {
   /**
    * seats: array(4) of null | {name, isBot}. At least 2 non-null.
-   * opts: dict (required), turnTime ms (0 = off), botDelay, awayGrace, randInt (tests)
+   * opts: dict (required, validates plays), botDict (bots + Hint; defaults to dict), turnTime ms (0 = off), botDelay, awayGrace, randInt (tests)
    */
   constructor(seats, opts = {}) {
     super();
     this.opts = Object.assign({ turnTime: 0, botDelay: 1200, awayGrace: 45000, randInt: (n) => crypto.randomInt(n) }, opts);
     if (!this.opts.dict) throw new Error('dict required');
     this.dict = this.opts.dict;
+    this.botDict = this.opts.botDict || this.dict; // bots and Hint only ever use everyday words
     this.players = seats.map((s) => (s ? { name: s.name, isBot: !!s.isBot, away: false, score: 0, rack: [] } : null));
     this.order = this.players.map((p, i) => (p ? i : -1)).filter((i) => i >= 0);
     if (this.order.length < 2 || this.order.length > 4) throw new Error('need 2-4 players');
@@ -58,7 +59,7 @@ class Game extends EventEmitter {
   botTurn(seat) {
     if (this.phase !== 'play' || this.turn !== seat) return;
     const p = this.players[seat];
-    const mv = MG.bestMove(this.board, p.rack, this.dict);
+    const mv = MG.bestMove(this.board, p.rack, this.botDict);
     if (mv) { const r = this.play(seat, mv.placements); if (r.ok) return; this.emit('error', new Error('bot produced illegal move: ' + r.error)); }
     if (this.bag.length >= R.RACK_SIZE) this.exchange(seat, MG.exchangeChoice(p.rack));
     else this.pass(seat);
@@ -97,7 +98,7 @@ class Game extends EventEmitter {
 
   hint(seat) {
     const e = this.checkTurn(seat); if (e) return { ok: false, error: e };
-    const mv = MG.bestMove(this.board, this.players[seat].rack, this.dict);
+    const mv = MG.bestMove(this.board, this.players[seat].rack, this.botDict);
     if (!mv) return { ok: true, hint: null };
     return { ok: true, hint: { placements: mv.placements, score: mv.score, words: mv.words.map((w) => w.word) } };
   }
@@ -190,7 +191,7 @@ class Game extends EventEmitter {
   viewFor(seat) {
     return {
       phase: this.phase, turn: this.turn, moveNo: this.moveNo, bag: this.bag ? this.bag.length : 0, scoreless: this.scoreless,
-      turnTime: this.opts.turnTime, remainingMs: this.deadline ? Math.max(0, this.deadline - Date.now()) : null,
+      turnTime: this.opts.turnTime, expertWords: this.dict !== this.botDict, remainingMs: this.deadline ? Math.max(0, this.deadline - Date.now()) : null,
       board: this.board.map((row) => row.map((x) => (x ? (x.blank ? x.letter.toLowerCase() : x.letter) : ''))),
       players: this.players.map((p, i) => (p ? { seat: i, name: p.name, isBot: p.isBot, away: p.away, score: p.score, rackCount: p.rack.length } : null)),
       lastMove: this.lastMove, log: this.log.slice(-12), result: this.result,

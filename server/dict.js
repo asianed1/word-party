@@ -1,6 +1,8 @@
 'use strict';
-// Compact trie over the ENABLE word list (public domain), stored in typed arrays.
-// Node layout: first child / next sibling linked lists. ~390k nodes ≈ 4 MB.
+// Compact tries over the word lists, stored in typed arrays (first child / next sibling linked lists).
+//   common (default): data/common-words.txt - everyday English from SCOWL size 55 ∩ ENABLE (~66k words, ~1.5 MB)
+//   expert (opt-in):  data/enable1.txt + data/common-add.txt (~173k words, ~5 MB), loaded lazily on first use
+// Slurs in data/blocked-words.txt are never accepted in either list.
 const fs = require('fs');
 const path = require('path');
 
@@ -46,19 +48,27 @@ class Trie {
   }
 }
 
-let cached = null;
 const DATA = path.join(__dirname, '..', 'data');
-// enable1.txt = the public-domain ENABLE list; extra-words.txt = a few common modern 2-letter words ENABLE lacks (QI, ZA, ...)
-function load(files = [path.join(DATA, 'enable1.txt'), path.join(DATA, 'extra-words.txt')]) {
-  if (cached) return cached;
-  const t = new Trie();
-  for (const file of files) {
-    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-      const w = line.trim().toUpperCase();
-      if (w.length >= 2 && w.length <= 15 && /^[A-Z]+$/.test(w) && !t.has(w)) t.insert(w);
-    }
+const LISTS = {
+  common: ['common-words.txt'],
+  expert: ['enable1.txt', 'common-add.txt'],
+};
+const readList = (file) => fs.readFileSync(path.join(DATA, file), 'utf8').split('\n')
+  .map((l) => l.trim().toUpperCase()).filter((w) => w && !w.startsWith('#'));
+let blocked = null;
+const cache = new Map();
+
+/** Load (once) and return the trie for 'common' (default) or 'expert'. */
+function load(kind = 'common') {
+  if (!Object.hasOwn(LISTS, kind)) throw new Error('unknown word list: ' + kind);
+  if (cache.has(kind)) return cache.get(kind);
+  if (!blocked) blocked = new Set(readList('blocked-words.txt'));
+  const t = new Trie(kind === 'common' ? 1 << 18 : 1 << 19);
+  for (const file of LISTS[kind]) {
+    for (const w of readList(file)) if (w.length >= 2 && w.length <= 15 && /^[A-Z]+$/.test(w) && !blocked.has(w) && !t.has(w)) t.insert(w);
   }
-  cached = t; return t;
+  t.kind = kind;
+  cache.set(kind, t); return t;
 }
 
 function fromWords(words) { const t = new Trie(1024); words.forEach((w) => t.insert(w.toUpperCase())); return t; }

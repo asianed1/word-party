@@ -149,8 +149,8 @@
       }
       list.appendChild(li);
     });
-    $('setTimer').value = String(room.settings.turnTime); $('setProfanity').checked = room.settings.profanity;
-    $('setTimer').disabled = !isHost || room.running; $('setProfanity').disabled = !isHost;
+    $('setTimer').value = String(room.settings.turnTime); $('setProfanity').checked = room.settings.profanity; $('setExpert').checked = !!room.settings.expertWords;
+    $('setTimer').disabled = !isHost || room.running; $('setProfanity').disabled = !isHost; $('setExpert').disabled = !isHost || room.running;
     const filled = room.seats.filter(Boolean).length;
     $('startBtn').classList.toggle('hidden', !isHost || room.running);
     $('startBtn').disabled = filled < 2;
@@ -173,6 +173,7 @@
   $('leaveBtn').onclick = () => { if (confirm('Leave this room?')) send({ t: 'leave' }); };
   $('setTimer').onchange = (e) => send({ t: 'settings', turnTime: Number(e.target.value) });
   $('setProfanity').onchange = (e) => send({ t: 'settings', profanity: e.target.checked });
+  $('setExpert').onchange = (e) => send({ t: 'settings', expertWords: e.target.checked });
 
   function renderMuteBar() {
     const bar = $('muteBar'); bar.replaceChildren();

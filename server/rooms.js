@@ -27,7 +27,7 @@ class Room {
     this.code = newCode();
     this.seats = [null, null, null, null]; // null | {bot:true} | {token, name, ws, muted, chat}
     this.host = 0;
-    this.settings = { turnTime: 0, profanity: true };
+    this.settings = { turnTime: 0, profanity: true, expertWords: false };
     this.game = null; this.lastActive = Date.now();
     this.gameOpts = opts.gameOpts || {};
   }
@@ -68,7 +68,7 @@ class Room {
   start() {
     const players = this.seats.map((s, i) => (!s ? null : s.bot ? { name: `Bot ${i + 1}`, isBot: true } : { name: s.name, isBot: false }));
     if (this.game) this.game.destroy();
-    this.game = new Game(players, Object.assign({ dict: dict.load(), turnTime: this.settings.turnTime * 1000 }, this.gameOpts));
+    this.game = new Game(players, Object.assign({ dict: dict.load(this.settings.expertWords ? 'expert' : 'common'), botDict: dict.load('common'), turnTime: this.settings.turnTime * 1000 }, this.gameOpts));
     this.game.on('update', () => this.broadcastState());
     this.game.on('event', (e) => this.broadcast({ t: 'event', e }));
     this.game.on('error', (e) => console.error('[game]', this.code, e));
@@ -94,7 +94,8 @@ const VALID = {
   start: () => true,
   addBot: (m) => m.seat === undefined || isSeat(m.seat),
   removeBot: (m) => isSeat(m.seat),
-  settings: (m) => (m.turnTime === undefined || TURN_TIMES.includes(m.turnTime)) && (m.profanity === undefined || typeof m.profanity === 'boolean'),
+  settings: (m) => (m.turnTime === undefined || TURN_TIMES.includes(m.turnTime)) && (m.profanity === undefined || typeof m.profanity === 'boolean')
+    && (m.expertWords === undefined || typeof m.expertWords === 'boolean'),
   act: (m) => {
     if (m.a === 'play' || m.a === 'preview') return validPlacements(m.placements) && m.ids === undefined;
     if (m.a === 'exchange') return Array.isArray(m.ids) && m.ids.length >= 1 && m.ids.length <= 7 && m.ids.every(isId) && m.placements === undefined;
@@ -105,7 +106,7 @@ const VALID = {
   leave: () => true,
   ping: () => true,
 };
-const ALLOWED_KEYS = new Set(['t', 'name', 'code', 'token', 'turnTime', 'profanity', 'a', 'placements', 'ids', 'text', 'seat', 'muted']);
+const ALLOWED_KEYS = new Set(['t', 'name', 'code', 'token', 'turnTime', 'profanity', 'expertWords', 'a', 'placements', 'ids', 'text', 'seat', 'muted']);
 
 function parseMessage(raw) {
   if (typeof raw !== 'string' || raw.length > 4096) return null;
@@ -203,6 +204,7 @@ function attach(ws, ip, roomLimiter) {
         if (seat !== room.host) return err('Only the host can change settings');
         if (m.profanity !== undefined) room.settings.profanity = m.profanity;
         if (m.turnTime !== undefined) { if (room.running()) return err('Change the turn timer between games'); room.settings.turnTime = m.turnTime; }
+        if (m.expertWords !== undefined) { if (room.running()) return err('Change the word list between games'); room.settings.expertWords = m.expertWords; }
         return room.broadcastRoom();
       case 'act': {
         if (!room.game) return err('Game not started');

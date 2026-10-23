@@ -62,6 +62,7 @@
           </select>
         </label>
         <label class="toggle"><input type="checkbox" id="setProfanity"> Chat profanity filter</label>
+        <label class="toggle" title="Off: everyday English words only. On: also accept rare and old words from the full ENABLE list. Bots always play everyday words."><input type="checkbox" id="setExpert"> Expert words (allow rare/old words)</label>
       </div>
       <p class="muted" id="lobbyNote"></p>
       <div class="row">
@@ -149,7 +150,7 @@
       <li>Press <b>Check</b> to see if your words are valid and what they score, then <b>Play</b>. Stuck? <b>Hint</b> suggests a move, <b>Swap</b> trades tiles (uses your turn), or <b>Pass</b>.</li>
       <li><b>The end:</b> when the bag is empty and someone uses their last tile - or after 6 turns in a row with no score. Leftover tiles count against you (and go to whoever went out first).</li>
     </ol>
-    <p class="muted small">Words are checked against the public-domain ENABLE word list.</p>
+    <p class="small"><b>Everyday English words only (standard dictionary).</b> <span class="muted">The host can turn on <i>Expert words</i> in the lobby to also allow rare/old words.</span></p>
     <p class="muted small publisher-note">Published by Crow New Media · © 2026 Crow New Media</p>
     <button class="big-btn primary" id="helpClose">Got it!</button>
   </div>

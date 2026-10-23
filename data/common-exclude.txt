@@ -1,0 +1,8 @@
+# Words removed from the SCOWL-derived common list (one per line, # = comment).
+# 1) Two-letter words that are in SCOWL but are not everyday English (Greek letters, letter names, jargon).
+MU
+NU
+ES
+EM
+TA
+HO

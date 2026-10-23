@@ -42,6 +42,10 @@ const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); process.ex
   ok((res.headers.get('content-security-policy') || '').includes("default-src 'self'"), 'CSP header present');
   ok(res.headers.get('x-content-type-options') === 'nosniff', 'X-Content-Type-Options: nosniff');
   ok((await fetch(base + '/healthz')).status === 200, '/healthz ok');
+  const word = async (w) => (await (await fetch(base + '/api/word?w=' + w)).json()).valid;
+  for (const w of ['GAED', 'FEIRIE', 'QAT', 'QI', 'ZA']) ok((await word(w)) === false, `everyday list rejects ${w}`);
+  for (const w of ['HOSE', 'TEE', 'QUEEN', 'JUMPED']) ok((await word(w)) === true, `everyday list accepts ${w}`);
+  ok(/Everyday English words only \(standard dictionary\)/.test(html), 'How to play says "Everyday English words only (standard dictionary)"');
 
   const A = client('Sam'), B = client('Alice');
   await A.open(); await B.open();
@@ -57,6 +61,14 @@ const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); process.ex
   ok(jb.seat === 1, 'Alice joined seat 2 (code is case-insensitive)');
   const room = await A.wait((m) => m.t === 'room' && m.seats[1] && m.seats[1].human);
   ok(room.seats[1].label === 'Alice 2' && room.seats[2] === null && room.seats[3] === null, `room lists Alice as "${room.seats[1].label}", seats 3-4 empty`);
+
+  ok(room.settings.expertWords === false, 'Expert words is off by default');
+  B.send({ t: 'settings', expertWords: true });
+  ok(!!(await B.wait((m) => m.t === 'error' && /host can change/.test(m.msg))), 'only the host can turn on Expert words');
+  A.send({ t: 'settings', expertWords: true });
+  ok((await B.wait((m) => m.t === 'room' && m.settings.expertWords === true)).settings.expertWords, 'host can turn Expert words on');
+  A.send({ t: 'settings', expertWords: false });
+  ok((await B.wait((m) => m.t === 'room' && m.settings.expertWords === false)), 'and back off');
 
   B.send({ t: 'addBot', seat: 2 });
   ok(!!(await B.wait((m) => m.t === 'error' && /host can add/.test(m.msg))), 'non-host cannot add bots');

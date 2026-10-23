@@ -169,3 +169,17 @@ test('headless simulation: several full 4-bot games finish with consistent total
     g.destroy();
   }
 });
+
+test('expert words: plays validate against ENABLE, but bots and Hint stick to everyday words', async () => {
+  const E = dict.load('expert');
+  const g = mk(seats(4, true), { dict: E, botDict: D });
+  assert.equal(g.viewFor(0).expertWords, true);
+  assert.equal(mk(seats(2, true)).viewFor(0).expertWords, false);
+  const done = new Promise((resolve) => g.on('gameOver', resolve));
+  g.start(); await done;
+  for (let r = 0; r < 15; r++) for (const dir of [[0, 1], [1, 0]]) {
+    const line = Array.from({ length: 15 }, (_, i) => { const x = dir[0] ? g.board[i][r] : g.board[r][i]; return x ? x.letter : ' '; }).join('');
+    for (const w of line.split(/\s+/)) if (w.length >= 2) assert.ok(D.has(w), `bot word ${w} is everyday`);
+  }
+  g.destroy();
+});
