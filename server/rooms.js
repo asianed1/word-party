@@ -208,7 +208,12 @@ function attach(ws, ip, roomLimiter) {
         if (!room.game) return err('Game not started');
         if (m.a === 'hint' && !hintLimiter.allow()) return err('Easy on the hints - try again in a few seconds');
         const r = room.game.act(seat, { a: m.a, placements: m.placements, ids: m.ids });
-        if (!r.ok) return err(r.error, r.invalid ? { invalid: r.invalid } : undefined);
+        if (!r.ok) {
+          const extra = {};
+          if (r.code) Object.assign(extra, { code: r.code, cells: r.cells || [], mark: r.mark || null });
+          if (r.invalid) extra.invalid = r.invalid;
+          return err(r.error, extra);
+        }
         if (r.preview) send(ws, { t: 'preview', p: r.preview });
         if (m.a === 'hint') send(ws, { t: 'hint', h: r.hint });
         return;

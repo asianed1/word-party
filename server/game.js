@@ -92,7 +92,7 @@ class Game extends EventEmitter {
   preview(seat, placements) {
     const p = this.players[seat]; if (!p) return { ok: false, error: 'no seat' };
     const ev = R.evaluateMove(this.board, p.rack, placements, this.dict);
-    return { ok: true, preview: { valid: ev.ok, error: ev.error || null, invalid: ev.invalid || [], score: ev.ok ? ev.score : null, bingo: !!ev.bingo, words: (ev.words || []).map((w) => ({ word: w.word, score: w.score })) } };
+    return { ok: true, preview: { valid: ev.ok, error: ev.error || null, code: ev.code || null, cells: ev.cells || [], mark: ev.mark || null, invalid: ev.invalid || [], score: ev.ok ? ev.score : null, bingo: !!ev.bingo, words: (ev.words || []).map((w) => ({ word: w.word, score: w.score })) } };
   }
 
   hint(seat) {
@@ -106,7 +106,7 @@ class Game extends EventEmitter {
     const e = this.checkTurn(seat); if (e) return { ok: false, error: e };
     const p = this.players[seat];
     const ev = R.evaluateMove(this.board, p.rack, placements, this.dict);
-    if (!ev.ok) return { ok: false, error: ev.error, invalid: ev.invalid };
+    if (!ev.ok) return { ok: false, error: ev.error, code: ev.code, cells: ev.cells, mark: ev.mark, invalid: ev.invalid };
     for (const t of ev.tiles) this.board[t.r][t.c] = { letter: t.letter, blank: t.blank };
     const usedIds = new Set(ev.tiles.map((t) => t.id));
     p.rack = p.rack.filter((t) => !usedIds.has(t.id));

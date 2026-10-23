@@ -114,6 +114,16 @@ const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); process.ex
   P.send({ t: 'act', a: 'preview', placements: hint.h.placements });
   const pv = await P.wait((m) => m.t === 'preview');
   ok(pv.p.valid && pv.p.score === hint.h.score, `Check preview: valid, ${pv.p.score} points`);
+  // The reported L-shape (2 across + 2 more down) must come back as a structured, friendly error.
+  const ids = (seat === 0 ? sa.v.rack : sb.v.rack).slice(0, 4).map((t) => t.id); // racks only change when their owner plays
+  const lShape = [[0, 0], [0, 1], [1, 1], [2, 1]].map(([r, c], i) => ({ id: ids[i], r, c, letter: 'E' }));
+  P.send({ t: 'act', a: 'play', placements: lShape });
+  const le = await P.wait((m) => m.t === 'error' && m.code);
+  ok(le.code === 'NOT_IN_LINE' && JSON.stringify(le.cells) === '[[0,0]]' && /single straight line/.test(le.msg), 'L-shape rejected as NOT_IN_LINE with the odd tile (0,0) flagged');
+  const gr = st.board.flat().some(Boolean) ? 0 : 7, gc = gr ? 7 : 0; // on move 1 the left tile must sit on the star
+  P.send({ t: 'act', a: 'preview', placements: [[gr, gc], [gr, gc + 2]].map(([r, c], i) => ({ id: ids[i], r, c, letter: 'E' })) });
+  const gp = await P.wait((m) => m.t === 'preview');
+  ok(!gp.p.valid && gp.p.code === 'GAP' && JSON.stringify(gp.p.cells) === JSON.stringify([[gr, gc + 1]]), 'Check reports GAP with the empty square');
   const other = clients[seat === 0 ? 1 : 0];
   other.send({ t: 'act', a: 'play', placements: hint.h.placements });
   ok(!!(await other.wait((m) => m.t === 'error' && /turn|rack/.test(m.msg))), 'other player cannot play out of turn');

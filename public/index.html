@@ -81,7 +81,8 @@
         <div class="status" id="status" aria-live="polite"></div>
         <div class="timer hidden" id="timerWrap"><div class="timer-bar" id="turnTimer"></div></div>
       </div>
-      <div class="preview hidden" id="preview" aria-live="polite"></div>
+      <div class="place-hint hidden" id="placeHint" aria-live="polite"></div>
+      <div class="preview hidden" id="preview" role="status" aria-live="assertive"></div>
       <div class="rack" id="rack" aria-label="Your tiles"></div>
       <div class="controls" id="controls">
         <button class="big-btn primary" id="playBtn">Play ✔</button>
@@ -156,6 +157,7 @@
 
 <div class="drag-ghost hidden" id="ghost" aria-hidden="true"></div>
 <div class="toast hidden" id="toast" role="status"></div>
+<script src="placement.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 'use strict';
 const crypto = require('crypto');
+const P = require('../public/placement.js');
 
 const SIZE = 15, CENTER = 7, RACK_SIZE = 7, BINGO = 50;
 const DIST = { A: 9, B: 2, C: 2, D: 4, E: 12, F: 2, G: 3, H: 2, I: 9, J: 1, K: 1, L: 4, M: 2, N: 6, O: 8, P: 2, Q: 1, R: 6, S: 4, T: 6, U: 4, V: 2, W: 2, X: 1, Y: 2, Z: 1, '?': 2 };
@@ -35,36 +36,31 @@ const rackValue = (rack) => rack.reduce((s, t) => s + VALUES[t.letter], 0);
  * rack: [{id, letter}] ; placements: [{id, r, c, letter?}] (letter required for blanks)
  * dict: object with has(word)
  * Returns {ok:true, score, words:[{word, score, cells}], tiles:[{r,c,letter,blank,id}], bingo}
- *      or {ok:false, error, invalid?:[words]}
+ *      or {ok:false, code, error, short, cells:[[r,c]], mark, invalid?:[words]} (see public/placement.js for codes)
  */
 function evaluateMove(board, rack, placements, dict, { checkWords = true } = {}) {
-  if (!Array.isArray(placements) || placements.length === 0) return { ok: false, error: 'Place at least one tile' };
-  if (placements.length > RACK_SIZE) return { ok: false, error: 'Too many tiles' };
+  if (!Array.isArray(placements) || placements.length === 0) return P.fail('NO_TILES', [], 'none');
+  if (placements.length > RACK_SIZE) return P.fail('TOO_MANY', [], 'none');
   const byId = new Map(rack.map((t) => [t.id, t]));
   const used = new Set(), cells = new Set(), tiles = [];
   for (const p of placements) {
-    if (!p || !Number.isInteger(p.r) || !Number.isInteger(p.c) || !inside(p.r, p.c)) return { ok: false, error: 'Tile off the board' };
+    if (!p || !Number.isInteger(p.r) || !Number.isInteger(p.c) || !inside(p.r, p.c)) return P.fail('OFF_BOARD', [], 'none');
     const t = byId.get(p.id);
-    if (!t || used.has(p.id)) return { ok: false, error: 'That tile is not on your rack' };
+    if (!t || used.has(p.id)) return P.fail('NOT_YOUR_TILE', [], 'none');
     used.add(p.id);
     const key = p.r * SIZE + p.c;
-    if (board[p.r][p.c] || cells.has(key)) return { ok: false, error: 'That square is already taken' };
+    if (board[p.r][p.c] || cells.has(key)) return P.fail('SQUARE_TAKEN', [[p.r, p.c]], 'tiles');
     cells.add(key);
     let letter = t.letter, blank = false;
     if (letter === '?') {
-      if (typeof p.letter !== 'string' || !/^[A-Z]$/.test(p.letter)) return { ok: false, error: 'Choose a letter for the blank tile' };
+      if (typeof p.letter !== 'string' || !/^[A-Z]$/.test(p.letter)) return P.fail('BLANK_LETTER', [[p.r, p.c]], 'tiles');
       letter = p.letter; blank = true;
     }
     tiles.push({ r: p.r, c: p.c, letter, blank, id: p.id });
   }
-  const rows = new Set(tiles.map((t) => t.r)), cols = new Set(tiles.map((t) => t.c));
-  if (rows.size > 1 && cols.size > 1) return { ok: false, error: 'Tiles must be in one row or one column' };
-  const first = boardEmpty(board);
-  if (first) {
-    if (!tiles.some((t) => t.r === CENTER && t.c === CENTER)) return { ok: false, error: 'The first word must cover the centre star ★' };
-    if (tiles.length < 2) return { ok: false, error: 'The first word needs at least 2 letters' };
-  }
-  // direction: horizontal if single row with >1 tiles; for a single tile, pick the axis that forms the longer word
+  const geo = P.checkPlacement(board, tiles);
+  if (!geo.ok) return geo;
+  const first = geo.first;
   const at = (r, c) => {
     if (!inside(r, c)) return null;
     if (board[r][c]) return { letter: board[r][c].letter, blank: board[r][c].blank, isNew: false };
@@ -77,20 +73,15 @@ function evaluateMove(board, rack, placements, dict, { checkWords = true } = {})
     while (at(r, c)) { out.push({ r, c, ...at(r, c) }); r += dr; c += dc; }
     return out;
   };
-  let horiz;
-  if (tiles.length > 1) horiz = rows.size === 1;
-  else horiz = wordAt(tiles[0].r, tiles[0].c, 0, 1).length >= wordAt(tiles[0].r, tiles[0].c, 1, 0).length;
+  const horiz = geo.horiz;
   const [dr, dc] = horiz ? [0, 1] : [1, 0];
-  // contiguity: every square between first and last placed tile must be filled
-  const sorted = tiles.slice().sort((a, b) => (horiz ? a.c - b.c : a.r - b.r));
-  const a = sorted[0], z = sorted[sorted.length - 1];
-  for (let r = a.r, c = a.c; r <= z.r && c <= z.c; r += dr, c += dc) if (!at(r, c)) return { ok: false, error: 'Tiles must be in one connected line - no gaps' };
+  const a = tiles.slice().sort((x, y) => (horiz ? x.c - y.c : x.r - y.r))[0];
   const words = [];
   const main = wordAt(a.r, a.c, dr, dc);
   if (main.length >= 2) words.push(main);
   for (const t of tiles) { const cw = wordAt(t.r, t.c, dc, dr); if (cw.length >= 2) words.push(cw); }
-  if (!words.length) return { ok: false, error: 'A word needs at least 2 letters' };
-  if (!first && !words.some((w) => w.some((x) => !x.isNew))) return { ok: false, error: 'Your word must connect to tiles already on the board' };
+  if (!words.length) return P.fail('TOO_SHORT', tiles.map((t) => [t.r, t.c]), 'pulse');
+  if (!first && !words.some((w) => w.some((x) => !x.isNew))) return P.fail('NOT_CONNECTED', tiles.map((t) => [t.r, t.c]), 'pulse');
   const scored = words.map((w) => {
     let sum = 0, mult = 1;
     for (const x of w) {
@@ -104,8 +95,13 @@ function evaluateMove(board, rack, placements, dict, { checkWords = true } = {})
     return { word: w.map((x) => x.letter).join(''), score: sum * mult, cells: w.map((x) => [x.r, x.c]) };
   });
   if (checkWords) {
-    const invalid = scored.filter((w) => !dict.has(w.word)).map((w) => w.word);
-    if (invalid.length) return { ok: false, error: `Not in the word list: ${invalid.join(', ')}`, invalid, words: scored };
+    const bad = scored.filter((w) => !dict.has(w.word));
+    if (bad.length) {
+      const invalid = bad.map((w) => w.word);
+      const badCells = []; const seen = new Set();
+      for (const w of bad) for (const [r, c] of w.cells) if (!seen.has(r * SIZE + c)) { seen.add(r * SIZE + c); badCells.push([r, c]); }
+      return P.fail('INVALID_WORDS', badCells, 'word', { error: P.invalidWordsMessage(invalid), short: P.invalidWordsMessage(invalid), invalid, words: scored });
+    }
   }
   const bingo = tiles.length === RACK_SIZE;
   const score = scored.reduce((s, w) => s + w.score, 0) + (bingo ? BINGO : 0);

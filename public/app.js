@@ -100,8 +100,8 @@
       case 'chat': addChat(m.seat, m.label, m.text); if (!session || m.seat !== session.seat) SFX.chat(); break;
       case 'system': addSystem(m.text); break;
       case 'error':
-        toast(m.msg, 3500);
-        if (m.invalid) { showPreview({ valid: false, error: m.msg, invalid: m.invalid, words: [] }); SFX.bad(); }
+        if (m.code) showProblem({ valid: false, error: m.msg, code: m.code, cells: m.cells, mark: m.mark, invalid: m.invalid || [], words: [] });
+        else toast(m.msg, 3500);
         break;
       case 'left':
         session = null; localStorage.removeItem('wp_session'); room = null; view = null;
@@ -212,6 +212,8 @@
   let selected = null;       // tile id picked for tap-to-place
   let swapMode = false, swapSel = new Set();
   let hinted = new Set(), lastTurnKey = null, lastPreview = null;
+  let flash = null;          // server-confirmed problem: {cells:Set, mark, timer} - shown in red for ~2s
+  let live = null;           // live client-side placement check of the pending tiles (soft hint)
   const rackTile = (id) => view && view.rack.find((t) => t.id === id);
   const myTurn = () => view && view.phase === 'play' && view.turn === view.you;
   function pLabel(i) { const p = view && view.players[i]; return !p ? `Seat ${i + 1}` : p.isBot ? `Bot ${i + 1}` : `${p.name} ${i + 1}`; }
@@ -237,8 +239,21 @@
     renderGame();
   }
 
+  const pendingTiles = () => [...pending.values()].map((p) => ({ r: p.r, c: p.c }));
+  function liveCheck() {
+    live = null;
+    if (!view || view.phase !== 'play' || swapMode || !pending.size || !window.Placement) return;
+    const res = window.Placement.checkPlacement(view.board, pendingTiles());
+    if (!res.ok) live = { code: res.code, short: res.short, mark: res.mark, cells: new Set(res.cells.map(([r, c]) => r * SIZE + c)) };
+  }
+  function flashCells(cells, mark) {
+    if (flash) clearTimeout(flash.timer);
+    flash = { mark, cells: new Set((cells || []).map(([r, c]) => r * SIZE + c)) };
+    flash.timer = setTimeout(() => { flash = null; if (view) renderBoard(); }, 2200);
+  }
   function renderGame() {
     if (!view) return;
+    liveCheck();
     renderTop(); renderScores(); renderBoard(); renderRack(); renderControls(); renderSide(); runTimer();
   }
 
@@ -297,8 +312,16 @@
       cell.classList.toggle('can-drop', !L && canDrop && selected != null);
       cell.classList.remove('target');
       cell.classList.toggle('star', r === 7 && c === 7 && !L);
+      const k = r * SIZE + c;
+      const fl = flash && flash.cells.has(k) ? flash.mark : null;
+      const lv = !fl && live && live.cells.has(k) ? live.mark : null;
+      cell.classList.toggle('gap-flash', fl === 'squares');
+      cell.classList.toggle('gap-soft', lv === 'squares');
+      cell.classList.toggle('star-pulse', fl === 'star');
+      cell.classList.toggle('star-soft', lv === 'star');
       if (L) {
-        const t = makeTile(L); if (recent.has(r * SIZE + c)) t.classList.add('recent');
+        const t = makeTile(L); if (recent.has(k)) t.classList.add('recent');
+        if (fl === 'word') t.classList.add('bad-word-tile');
         cell.appendChild(t); continue;
       }
       const pid = pendingAt(r, c);
@@ -306,6 +329,7 @@
         const p = pending.get(pid), rt = rackTile(pid);
         const t = makeTile(rt.letter === '?' ? (p.letter || '?').toLowerCase() : rt.letter, { blank: rt.letter === '?' });
         t.classList.add('pending'); if (hinted.has(pid)) t.classList.add('hinted');
+        if (fl === 'tiles') t.classList.add('odd'); else if (fl === 'pulse') t.classList.add('odd-pulse'); else if (fl === 'word') t.classList.add('bad-word-tile'); else if (lv === 'tiles' || lv === 'pulse') t.classList.add('odd-soft');
         t.dataset.id = pid; t.dataset.from = 'board';
         cell.appendChild(t);
       }
@@ -332,6 +356,11 @@
     $('controls').classList.toggle('hidden', swapMode);
     $('swapControls').classList.toggle('hidden', !swapMode);
     $('playBtn').disabled = !mine || !has;
+    const hint = $('placeHint'), showingProblem = lastPreview && !lastPreview.valid;
+    if (live && !showingProblem) { hint.textContent = `⚠ ${live.short}`; hint.classList.remove('hidden'); }
+    else hint.classList.add('hidden');
+    $('playBtn').title = live ? `Not quite yet: ${live.short}` : 'Play your word';
+    $('playBtn').classList.toggle('warn', !!live);
     $('checkBtn').disabled = !has;
     $('recallBtn').disabled = !has;
     $('shuffleBtn').disabled = view.rack.length < 2;
@@ -344,7 +373,7 @@
     const st = $('status');
     st.classList.toggle('myturn', mine);
     if (view.phase === 'over') st.textContent = 'Game over!';
-    else if (mine) st.textContent = swapMode ? 'Pick tiles to swap' : has ? 'Press Check or Play ✔' : 'Your turn! Drag or tap tiles onto the board';
+    else if (mine) st.textContent = swapMode ? 'Pick tiles to swap' : has ? (live || (lastPreview && !lastPreview.valid) ? 'Not quite yet - see the tip below 👇' : 'Press Check or Play ✔') : 'Your turn! Drag or tap tiles onto the board';
     else st.textContent = `Waiting for ${pLabel(view.turn)}…`;
   }
 
@@ -513,7 +542,15 @@
   $('swapConfirm').onclick = () => { if (swapSel.size) { send({ t: 'act', a: 'exchange', ids: [...swapSel] }); swapMode = false; swapSel.clear(); renderGame(); } };
   $('resultBtn').onclick = () => { renderResult(); $('resultPopup').classList.remove('hidden'); };
 
-  function clearPreview() { lastPreview = null; $('preview').classList.add('hidden'); }
+  function clearPreview() {
+    lastPreview = null; $('preview').classList.add('hidden');
+    if (flash) { clearTimeout(flash.timer); flash = null; }
+  }
+  // A server-confirmed problem with the move: explain it in the message box and flash the squares involved.
+  function showProblem(p) {
+    showPreview(p);
+    SFX.bad();
+  }
   function showPreview(p) {
     lastPreview = p; const box = $('preview'); box.replaceChildren(); box.classList.remove('hidden');
     box.classList.toggle('bad', !p.valid);
@@ -523,9 +560,18 @@
       if (p.bingo) box.appendChild(h('span', '', ' + 50 bingo'));
       box.appendChild(h('b', '', ` = ${p.score} points`));
     } else if (p.invalid && p.invalid.length) {
-      box.appendChild(h('span', '', '✖ Not in the word list: '));
-      p.invalid.forEach((w, i) => { if (i) box.appendChild(h('span', '', ', ')); box.appendChild(h('span', 'bad-word', w)); });
-    } else box.appendChild(h('span', '', `✖ ${p.error || 'Not a valid move'}`));
+      box.appendChild(h('span', 'icon', '✖ '));
+      p.invalid.forEach((w, i) => {
+        if (i) box.appendChild(h('span', '', i === p.invalid.length - 1 ? ' and ' : ', '));
+        box.appendChild(h('span', 'bad-word', w));
+      });
+      box.appendChild(h('span', '', p.invalid.length > 1 ? " aren't in the dictionary." : " isn't in the dictionary."));
+    } else {
+      box.appendChild(h('span', 'icon', '✖ '));
+      box.appendChild(h('span', '', p.error || 'Not a valid move'));
+    }
+    if (!p.valid && p.cells && p.cells.length) flashCells(p.cells, p.mark);
+    if (view) { renderBoard(); renderControls(); }
   }
   function applyHint(hn) {
     if (!hn) { toast('No playable word found - try Swap or Pass.', 3500); return; }

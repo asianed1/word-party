@@ -34,19 +34,20 @@ test('premium layout: 8 TW, 17 DW (incl. centre), 12 TL, 24 DL, symmetric', () =
 test('placement validation', () => {
   const empty = R.emptyBoard();
   const rk = rackOf('CATSXAE');
-  const err = (b, p) => R.evaluateMove(b, rk, p, DICT).error;
-  assert.match(err(empty, []), /at least one/);
-  assert.match(err(empty, [{ id: 0, r: 7, c: 7 }]), /at least 2/);
-  assert.match(err(empty, [{ id: 0, r: 0, c: 0 }, { id: 1, r: 0, c: 1 }, { id: 2, r: 0, c: 2 }]), /centre/);
-  assert.match(err(empty, [{ id: 0, r: 7, c: 7 }, { id: 1, r: 8, c: 8 }]), /one row or one column/);
-  assert.match(err(empty, [{ id: 0, r: 7, c: 6 }, { id: 1, r: 7, c: 7 }, { id: 2, r: 7, c: 9 }]), /no gaps/);
-  assert.match(err(empty, [{ id: 0, r: 7, c: 7 }, { id: 0, r: 7, c: 8 }]), /not on your rack/);
-  assert.match(err(empty, [{ id: 42, r: 7, c: 7 }, { id: 1, r: 7, c: 8 }]), /not on your rack/);
-  assert.match(err(empty, [{ id: 0, r: 7, c: 7 }, { id: 1, r: 7, c: 7 }]), /taken/);
-  assert.match(err(empty, [{ id: 0, r: 7, c: 15 }, { id: 1, r: 7, c: 14 }]), /off the board/);
+  const code = (b, p) => R.evaluateMove(b, rk, p, DICT).code;
+  assert.equal(code(empty, []), 'NO_TILES');
+  assert.equal(code(empty, [{ id: 0, r: 7, c: 7 }]), 'FIRST_TOO_SHORT');
+  assert.equal(code(empty, [{ id: 0, r: 0, c: 0 }, { id: 1, r: 0, c: 1 }, { id: 2, r: 0, c: 2 }]), 'FIRST_CENTER');
+  assert.equal(code(empty, [{ id: 0, r: 7, c: 7 }, { id: 1, r: 8, c: 8 }]), 'NOT_IN_LINE');
+  assert.equal(code(empty, [{ id: 0, r: 7, c: 6 }, { id: 1, r: 7, c: 7 }, { id: 2, r: 7, c: 9 }]), 'GAP');
+  assert.equal(code(empty, [{ id: 0, r: 7, c: 7 }, { id: 0, r: 7, c: 8 }]), 'NOT_YOUR_TILE');
+  assert.equal(code(empty, [{ id: 42, r: 7, c: 7 }, { id: 1, r: 7, c: 8 }]), 'NOT_YOUR_TILE');
+  assert.equal(code(empty, [{ id: 0, r: 7, c: 7 }, { id: 1, r: 7, c: 7 }]), 'SQUARE_TAKEN');
+  assert.equal(code(empty, [{ id: 0, r: 7, c: 15 }, { id: 1, r: 7, c: 14 }]), 'OFF_BOARD');
   const b = place(R.emptyBoard(), 'CAT', 7, 6);
-  assert.match(err(b, [{ id: 0, r: 7, c: 7 }, { id: 1, r: 8, c: 7 }]), /taken/);
-  assert.match(err(b, [{ id: 1, r: 0, c: 0 }, { id: 2, r: 0, c: 1 }]), /connect/);
+  assert.equal(code(b, [{ id: 0, r: 7, c: 7 }, { id: 1, r: 8, c: 7 }]), 'SQUARE_TAKEN');
+  assert.equal(code(b, [{ id: 1, r: 0, c: 0 }, { id: 2, r: 0, c: 1 }]), 'NOT_CONNECTED');
+  assert.equal(code(b, [{ id: 1, r: 0, c: 0 }]), 'NOT_CONNECTED');
   // gap filled by an existing tile is fine: S _ (existing) ... use CATS extension
   const ok = R.evaluateMove(b, rk, [{ id: 3, r: 7, c: 9 }], DICT);
   assert.equal(ok.ok, true); assert.equal(ok.words[0].word, 'CATS');
@@ -56,7 +57,7 @@ test('placement validation', () => {
   assert.equal(bridge.ok, true); assert.equal(bridge.words[0].word, 'CATS');
   // blank must have a chosen letter
   const br = [{ id: 0, letter: '?' }, { id: 1, letter: 'A' }, { id: 2, letter: 'T' }];
-  assert.match(R.evaluateMove(R.emptyBoard(), br, [{ id: 0, r: 7, c: 6 }, { id: 1, r: 7, c: 7 }, { id: 2, r: 7, c: 8 }], DICT).error, /Choose a letter/);
+  assert.equal(R.evaluateMove(R.emptyBoard(), br, [{ id: 0, r: 7, c: 6 }, { id: 1, r: 7, c: 7 }, { id: 2, r: 7, c: 8 }], DICT).code, 'BLANK_LETTER');
 });
 
 test('invalid words are reported by name', () => {

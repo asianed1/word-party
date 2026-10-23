@@ -20,6 +20,7 @@ npm run smoke     # 2 WebSocket clients against a running server (default http:/
 node scripts/smoke.js https://your-host     # smoke test a deployed copy
 # optional layout check (needs playwright-core + Chrome):
 PW=/path/to/playwright-core CHROME=/usr/bin/google-chrome node scripts/browser-check.js http://localhost:3000
+PW=/path/to/playwright-core CHROME=/usr/bin/google-chrome node scripts/error-check.js http://localhost:3000  # placement-error UX
 ```
 
 Node 18+. Dependencies: `express`, `ws`, `helmet`. No database: rooms live in memory.
@@ -39,6 +40,21 @@ Node 18+. Dependencies: `express`, `ws`, `helmet`. No database: rooms live in me
   tile values, others lose theirs), or **6 scoreless turns in a row** (everyone loses their own leftover values).
 * Optional **turn timer** (1/2/3/5 min, off by default) - running out passes your turn.
 * 100 tiles, standard English distribution and values (incl. 2 blanks), standard premium-square layout.
+
+## Friendly placement errors
+
+Placement rules live in `public/placement.js`, shared by the server (authoritative) and the browser (live hints).
+The server answers a bad move with a code, the offending squares and a plain-English message:
+
+| Code | When | What lights up |
+|---|---|---|
+| `NOT_IN_LINE` | tiles placed both across and down | the odd-one-out tiles (those outside the line holding the most new tiles) |
+| `GAP` | an empty square between your tiles | the empty square(s) |
+| `FIRST_CENTER` | first word misses the ★ | the star pulses |
+| `NOT_CONNECTED` | word doesn't touch existing tiles | your placed tiles pulse |
+| `INVALID_WORDS` | e.g. "ZORP isn't in the dictionary." | the squares of each bad word |
+
+While you place tiles the same checks run in the browser and show a soft tip (and a Play-button tooltip) before you press Play.
 
 ## Rooms, bots and reconnecting
 
